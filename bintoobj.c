@@ -64,30 +64,32 @@ char *fullpath;
 
 char *str_obj_st =
 {
-    "struct obj_st          \r\n \ 
-    {                       \r\n \
-        char path[128];     \r\n \
-        char *start;        \r\n \
-        char *end;          \r\n \
-        char *size;         \r\n \
-    };"
-};
+"struct obj_st          \r\n\ 
+{                       \r\n\
+    char path[256];     \r\n\
+    char *start;        \r\n\
+    char *end;          \r\n\
+    char *size;         \r\n\
+};                      \r\n\
+"};
 
 #if 1
+char *str_find_resource_fun_name = "extern \"C\" struct obj_st* find_resouce_by_path(char *path);\r\n";
 char *str_find_resource_fun =
 {
-    "struct obj_st* find_resouce_by_path(char *path)                                  \r\n \
-    {                                                                                 \r\n \
-        int i = 0;                                                                        \r\n \
-            for(; i < sizeof(resource_obj)/(sizeof(struct obj_st)); i++)                      \r\n \
-                if(strncmp(resource_obj[i].path, path, strlen(resource_obj[i].path)) == 0)    \r\n \
-                    return &resource_obj[i];                                                  \r\n \
-                        return NULL;                                                                      \r\n \
-    }"
+"struct obj_st* find_resouce_by_path(char *path)                                      \r\n\
+{                                                                                     \r\n\
+    int i = 0;                                                                        \r\n\
+    for(; i < sizeof(resource_obj)/(sizeof(struct obj_st)); i++)                      \r\n\
+        if(strncmp(resource_obj[i].path, path, strlen(resource_obj[i].path)) == 0)    \r\n\
+            return &resource_obj[i];                                                  \r\n\
+    return NULL;                                                                      \r\n\
+}"
 };
 #endif
 
 FILE *fp;
+FILE *fp_h;
 FILE *fp_tmp;
 
 /* just get lastest info */
@@ -151,9 +153,9 @@ int bintoobj(char *filename)
         symbol[strlen(symbol) - 5] = 0;
     printf("symbol: [%s]\r\n", symbol);
 
-    sprintf(symbol_start, "extern char* %sstart;\r\n", symbol);
-    sprintf(symbol_end, "extern char* %send;\r\n", symbol);
-    sprintf(symbol_size, "extern char* %ssize;\r\n", symbol);
+    sprintf(symbol_start, "extern char %sstart;\r\n", symbol);
+    sprintf(symbol_end,   "extern char %send;\r\n", symbol);
+    sprintf(symbol_size,  "extern char %ssize;\r\n", symbol);
 
     fwrite(symbol_start, sizeof(char), strlen(symbol_start), fp);  
     fwrite(symbol_end, sizeof(char), strlen(symbol_end), fp);  
@@ -190,7 +192,8 @@ int readfile(char *k)
     {
         //printf("%s ",k);
         printf("%s \n", fullpath);
-        bintoobj(k);
+        if(buf.st_size)
+            bintoobj(k);
         return 1;
     }
 
@@ -230,8 +233,6 @@ int readfile(char *k)
     return 0;
 }
 
-
-
 int main(int argc,char *argv[])
 {
     if(argc != 2)
@@ -241,15 +242,18 @@ int main(int argc,char *argv[])
     }
 
     fp= fopen("./resource.c","w");  
+    fp_h= fopen("./resource.h","w");  
     fp_tmp= fopen("./resource_tmp.c","w+");  
 
     fwrite("#include <stdio.h>\r\n", sizeof(char), strlen("#include <stdio.h>\r\n"), fp);  
-    fwrite(str_obj_st, sizeof(char), strlen(str_obj_st), fp);  
+    fwrite("#include <string.h>\r\n", sizeof(char), strlen("#include <string.h>\r\n"), fp);  
+    fwrite("#include \"resource.h\"\r\n", sizeof(char), strlen("#include \"resource.h\"\r\n"), fp);  
     fwrite("\r\n\r\n", sizeof(char), strlen("\r\n\r\n"), fp);  
     fwrite("struct obj_st resource_obj[] = {\r\n", sizeof(char), strlen("struct obj_st resource_obj[] = {\r\n"), fp_tmp);  
 
 
-    system("rm ./.tmp/*");
+    system("rm ./.tmp -r");
+    system("mkdir ./.tmp");
     //最终文件的路径是保存在fullpath中的，这里对fullpath进行了初始化
     fullpath = (char *)malloc(sizeof(char)*PATH_MAX);
     memset(fullpath,0,PATH_MAX);
@@ -269,8 +273,14 @@ int main(int argc,char *argv[])
 
     //system("gcc -c resource.c -o ./.tmp/resource.o");
 
+
+    fwrite(str_obj_st, sizeof(char), strlen(str_obj_st), fp_h);  
+    fwrite(str_find_resource_fun_name, sizeof(char), strlen(str_find_resource_fun_name), fp_h);  
+
+    system("rm ./libresource.a");
     system("ar rcs ./libresource.a ./.tmp/*.o");
     fclose(fp_tmp);
+    fclose(fp_h);
     fclose(fp);  
     return 0;
 }
